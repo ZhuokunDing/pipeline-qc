@@ -1,0 +1,21 @@
+name: pipline-qc
+version: "3.4"
+x-shared: &common
+  ipc: host
+  volumes:
+    - /home/zhuokund/src:/src
+    - /mnt:/mnt
+    - ${NOTEBOOK_PATH}:/notebooks
+    - ${DATA_PATH}:/data
+  env_file:
+    - .env
+
+services:
+  notebook:
+    <<: *common
+    image: at-docker:5000/datascience-notebook:cuda11.8-python3.10-torch2
+    container_name: pipeline-qc
+    ports:
+      - "0.0.0.0:8884:8888"
+    entrypoint: /src/pipeline-qc/deploy/docker/deploy.sh
+  
