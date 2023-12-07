@@ -3,7 +3,8 @@ cd /src || {
 	echo "cd failed"
 	exit
 }
-
+pip install datajoint
+pip install -e pipeline-qc
 git config --global --add safe.directory '*'
 git config --global user.name "Zhuokun Ding"
 git config --global user.email "zkding@outlook.com"

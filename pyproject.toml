@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipeline-qc"
+authors = [
+    {name = "Zhuokun Ding", email = "zkding@outlook.com"},
+]
+description = "My package description"
+requires-python = ">=3.8"
+keywords = ["pipeline quality control"]
+license = {text = "BSD-3-Clause"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+version = "0.0.1"
+
+[tool.black]
+preview = true
