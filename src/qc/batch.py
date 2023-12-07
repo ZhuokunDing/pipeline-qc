@@ -1,8 +1,8 @@
 from . import scan, logger
 import pandas as pd
 
-class Batch:
 
+class Batch:
     def __init__(self, scan_keys) -> None:
         self.scans = [
             scan.Scan(
@@ -16,11 +16,11 @@ class Batch:
     @property
     def keys(self):
         return [s.key for s in self.scans]
-    
+
     @property
     def stacks(self):
         return [s.stack for s in self.scans]
-    
+
     @property
     def stack_regs(self):
         return [s.stack_reg for s in self.scans]
@@ -46,9 +46,11 @@ class Batch:
             try:
                 s.fill_rot_task(force=force)
             except Exception as e:
-                logger.error(f"Failed to insert RegistrationOverTime task for {s.key}: {e}")
+                logger.error(
+                    f"Failed to insert RegistrationOverTime task for {s.key}: {e}"
+                )
 
-    @property 
+    @property
     def jobs_df(self):
         dfs = []
         for s in self.scans:
@@ -56,8 +58,8 @@ class Batch:
             for k in s.key:
                 df[k] = s.key[k]
             dfs.append(df)
-        return pd.concat(dfs).set_index(['animal_id', 'session', 'scan_idx'])
-    
+        return pd.concat(dfs).set_index(["animal_id", "session", "scan_idx"])
+
     @property
     def stack_jobs_df(self):
         dfs = []
@@ -66,14 +68,36 @@ class Batch:
             for k in s.key:
                 df[k] = s.key[k]
             dfs.append(df)
-        return pd.concat(dfs).set_index(['animal_id', 'session', 'scan_idx'])
-    
+        return pd.concat(dfs).set_index(["animal_id", "session", "scan_idx"])
+
     @property
-    def done(self):
+    def scan_done(self):
         rec = []
         for s in self.scans:
-            rec.append({**s.key, 'done':s.done})
+            rec.append({**s.key, "done": s.scan_done})
         return pd.DataFrame.from_records(rec)
+
+    @property
+    def stack_reg_done(self):
+        rec = []
+        for s in self.scans:
+            rec.append({**s.key, "done": s.stack_reg_done})
+        return pd.DataFrame.from_records(rec)
+
+    @property
+    def stack_rot_done(self):
+        rec = []
+        for s in self.scans:
+            rec.append({**s.key, "done": s.stack_rot_done})
+        return pd.DataFrame.from_records(rec)
+
+    def run_qc(self, filepath="/mnt/lab/users/zhuokun/pipeline_qc"):
+        for s in self.scans:
+            try:
+                s.run_qc(filepath=filepath)
+            except Exception as e:
+                logger.error(f"Failed to run qc for {s.key}: {e}")
+        return
 
 
 # %%
@@ -89,18 +113,12 @@ if __name__ == "__main__":
             'notes not like "%%monitor issue%%" and '
             'notes not like "%%high monitor luminance%%"'
         ),
-        (
-            'study_name like "plat2dot2" '
-            'and scan_purpose="platinum_plus"'
-        ),
-        (
-            'study_name like "plat2oracler10" '
-            'and scan_purpose="platinum_plus"'
-        ),
+        ('study_name like "plat2dot2" ' 'and scan_purpose="platinum_plus"'),
+        ('study_name like "plat2oracler10" ' 'and scan_purpose="platinum_plus"'),
         (
             'study_name like "plat2oracle_r10" '
             'and scan_purpose="platinum_plus" and score > 3'
-        )
+        ),
     ]
 
     scan_keys = (V.collection.CuratedScan & scan_query).fetch(

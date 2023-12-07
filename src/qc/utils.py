@@ -41,4 +41,4 @@ def get_beh_h5_filepath(key):
     )
 
 def dict2str(dic):
-    return '_'.join([f'{k}-{v}' for k,v in dic.items()])
+    return '_'.join([f'{k.replace("_", "-")}-{v}' for k,v in dic.items()])
