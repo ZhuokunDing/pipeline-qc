@@ -1,4 +1,7 @@
-from . import MissingError, logger, virtual as V, utils
+from . import utils
+from .errors import MissingError
+from .logging import logger
+import qc.virtual as V
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
@@ -25,21 +28,21 @@ def rot_qc(rot_key_df: pd.DataFrame):
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
     for rot_key in rot_key_df.sort_values("field").to_dict("records"):
         if rot_key["registration_method"] == 5:
-            frame_num, reg_z = (V.stack.RegistrationOverTime.NonRigid & rot_key).fetch(
+            frame_num, reg_z = (V.stack.RegistrationOverTime.Affine & rot_key).fetch(
                 "frame_num", "reg_z", order_by="frame_num"
             )
             # plot raw reg_z
             axes[0].plot(frame_num, reg_z, label=f"field {rot_key['field']}")
             axes[0].set_xlabel("frame_num")
             axes[0].set_ylabel("reg_z")
-            axes[0].set_title("NonRigid registration")
+            axes[0].set_title("Affine registration")
             # plot median subtracted reg_z
             axes[1].plot(
                 frame_num, reg_z - np.median(reg_z), label=f"field {rot_key['field']}"
             )
             axes[1].set_xlabel("frame_num")
             axes[1].set_ylabel("reg_z - median(reg_z)")
-            axes[1].set_title("NonRigid registration")
+            axes[1].set_title("Affine registration")
         else:
             raise NotImplementedError("Only registration_method 5 is implemented")
 
