@@ -5,6 +5,8 @@ from . import (
     utils,
     jobs,
     stack,
+    logging as logger,
+    MissingError,
 )
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -130,6 +132,27 @@ class Scan(dict):
     def auto_processing(self):
         return V.experiment.AutoProcessing & self.key
 
+    def fill_auto_processing(self):
+        if len(self.auto_processing) == 0:
+            try:
+                V.experiment.AutoProcessing.insert1(
+                    {**self.key, "priority": 100, "autosegment": 1},
+                    ignore_extra_fields=True,
+                )
+            except dj.errors.DuplicateError:
+                existing_key = V.experiment.AutoProcessing & {
+                    k: v
+                    for k, v in self.key.items()
+                    if k in ("animal_id", "session", "scan_idx")
+                }
+                existing_key.delete_quick()
+                V.experiment.AutoProcessing.insert1(
+                    {**self.key, "priority": 100, "autosegment": 1},
+                    ignore_extra_fields=True,
+                )
+            except Exception as e:
+                logger.error(f"Failed to insert AutoProcessing for {self.key}: {e}")
+
     @property
     def jobs_df(self):
         return jobs.get_jobs(
@@ -149,9 +172,22 @@ class Scan(dict):
         if errors is None:
             errors = (
                 "LostConnectionError: Connection was lost during a transaction.",
-                "OperationalError: (1205, 'Lock wait timeout exceeded; try restarting transaction')",
+                (
+                    "OperationalError: (1205, 'Lock wait timeout exceeded; try"
+                    " restarting transaction')"
+                ),
             )
         jobs.delete_errors(self.jobs_df, errors=errors)
+
+    def delete_stack_errors(self, errors=None):
+        if errors is None:
+            errors = (
+                "LostConnectionError: Connection was lost during a transaction.",
+                (
+                    "OperationalError: (1205, 'Lock wait timeout exceeded; try"
+                    " restarting transaction')"
+                ),
+            )
         jobs.delete_errors(self.stack_jobs_df, errors=errors)
 
     @property
@@ -197,7 +233,10 @@ class Scan(dict):
         return pupil.pupil_qc(self.key)
 
     def rot_qc(self):
-        return stack.rot_qc(self.stack_rot_field.fetch(format="frame").reset_index())
+        if self.stack_rot_done is True:
+            return stack.rot_qc(self.stack_rot_field.fetch(format="frame").reset_index())
+        else:
+            raise MissingError("RegistrationOverTime not populated.")
 
     # def segmentation_qc(self):
     #     return segmentation.segmentation_qc(self.key)
@@ -211,15 +250,25 @@ class Scan(dict):
     # def mask_classification_qc(self):
     #     return mask_classification.mask_classification_qc(self.key)
 
-    def run_qc(self, filepath="/mnt/lab/users/zhuokun/pipeline_qc"):
+    def run_qc(
+            self, 
+            filepath="/mnt/lab/users/zhuokun/pipeline_qc",
+            steps='pupil-treadmill-rot',
+            suppress_errors=True,
+        ):
         # create folder if not exist
         filepath = Path(filepath) / utils.dict2str(self.key)
         filepath.mkdir(parents=True, exist_ok=True)
         figs = []
-        figs.append(self.pupil_qc())
-        figs.append(self.treadmill_qc())
-        if self.stack_rot_done:
-            figs.append(self.rot_qc())
+        if suppress_errors:
+            for step in steps.split('-'):
+                try:
+                    figs.append(getattr(self, f'{step}_qc')())
+                except Exception as e:
+                    logger.error(f"Failed to run {step} qc for {self.key}: {e}")
+        else:
+            for step in steps.split('-'):
+                figs.append(getattr(self, f'{step}_qc')())
         # save figs to file as pdfs
         for name, fig in figs:
             fig.savefig(filepath / f"{name}.pdf", bbox_inches="tight")
@@ -237,15 +286,21 @@ if __name__ == "__main__":
             'notes not like "%%monitor issue%%" and '
             'notes not like "%%high monitor luminance%%"'
         ),
-        ('study_name like "plat2dot2" ' 'and scan_purpose="platinum_plus"'),
-        ('study_name like "plat2oracler10" ' 'and scan_purpose="platinum_plus"'),
+        'study_name like "plat2dot2" and scan_purpose="platinum_plus"',
+        'study_name like "plat2oracler10" and scan_purpose="platinum_plus"',
         (
             'study_name like "plat2oracle_r10" '
             'and scan_purpose="platinum_plus" and score > 3'
         ),
+        (
+            'study_name like "plat2grate2" '
+            'and scan_purpose="platinum_plus" and score > 3 '
+            'and score_ts>"2022-00-00 00:00:00:00"'
+        ),
     ]
     scan_key = (V.collection.CuratedScan & scan_query).fetch(
         "animal_id", "session", "scan_idx", as_dict=True
-    )[0]
+    )
+    scan_key = scan_key[0]
     test_scan = scan.Scan(**scan_key)
 # %%
