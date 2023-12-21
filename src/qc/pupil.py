@@ -40,6 +40,7 @@ def plot_pupil_fit(
             points_y = np.stack(points.y)[:, j]
             plt.scatter(points_x, points_y, color="r", s=1)
         plt.sca(axes[fit_row, col])
+        plt.imshow(pupil_frame, vmin=_vmin, vmax=_vmax, cmap="gray")
         if x is not np.nan:
             circle = plt.Circle(
                 (x[j], y[j]), r[j], fill=False, edgecolor="r", linestyle="--"
